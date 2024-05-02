@@ -4,240 +4,243 @@
 
 using namespace std;
 
-const int INF = 2000000001;
-const int NMAX = 101;
+ifstream f("mergeheap.in");
+ofstream g("mergeheap.out");
 
-ifstream fin ( "mergeheap.in" );
-ofstream fout ( "mergeheap.out" );
-
-struct node{
-    int key, degree;
-    node *child, *sibling, *parent;
+struct Nod {
+    int val, grad;
+    Nod* copil, * frate, * parinte;
 };
 
-node* new_node( int val ){
-    node* temp = new node;
-    temp -> key = val;
-    temp -> degree = 0;
-    temp -> child = temp -> sibling = temp -> parent = NULL;
-    return temp;
+Nod* newNod(int x) {    //se creeaza un nod nou
+    Nod* newNod = new Nod;
+    newNod-> grad = 0;
+    newNod-> val = x;
+    newNod-> copil = NULL;
+    newNod-> frate = NULL;
+    newNod-> parinte = NULL;
+    return newNod;
 }
 
-class binomial_heap{
+class BinomialHeap {
+    list <Nod*> heap;
+public:
 
-    list < node* > H;
+    void deleteRadacina(Nod* min) {     //se elimina radacina unui tree primit ca parametru si se "distribuie" copii in heap
 
-    list < node* > :: iterator get_root(){
-
-        list < node* > :: iterator it, it_max;
-        node* vmax = new_node( -INF );
-
-        for( it = H.begin(); it != H.end(); ++it )
-            if( (*it) -> key > vmax -> key ){
-                vmax = *it;
-                it_max = it;
-            }
-
-        return it_max;
-    }
-
-    void delete_root( node* tree, binomial_heap& heap ){
-
-        if( tree -> degree == 0 ){
-            delete tree;
+        if (min->grad == 0) {           //daca tree-ul are grad 0 se sterge direct
+            delete min;
             return;
         }
 
-        node* temp = tree;
+        Nod* del = min;                //se pastreaza adresa initiala pentru stergerea ulterioara
 
-        tree -> child -> parent = NULL;
-        heap.H.push_front( tree -> child );
+        min = min->copil;               //se merge in left-most child-ul tree-ului
+        do {
+            min->parinte = NULL;        //pentru fiecare copil, se seteaza parintele ca NULL
+            heap.push_front(min);       //fiecare copil este push-at in heap
+            min = min->frate;           //se avanseaza la urmatorul copil al radacinii (fratele copilului curent)
+        } while (min != NULL);
 
-        tree = tree -> child;
-        while( tree -> sibling ){
-            tree -> sibling -> parent = NULL;
-            heap.H.push_front( tree -> sibling );
-            tree = tree -> sibling;
+        delete del;
+    }
+
+    Nod* mergeTrees(Nod* t1, Nod* t2) {     //se merge-uiesc 2 binary trees
+
+        if (t1->val < t2->val) {            //daca val radacinii lui tree-ului t1 este mai mare ca val radacinii lui t2 se interschimba
+            Nod* aux;
+            aux = t1;
+            t1 = t2;
+            t2 = aux;
         }
-        delete temp;
+
+        t2->frate = t1->copil;              
+        t1->copil = t2;
+        t2->parinte = t1;
+        t1->grad++;
+
+        return t1;
     }
 
-    void merge_tree( node* tree1, node* tree2 ){
+    void reHeap() {     //se repara proprietatea de binomial heap, adica se unesc toti arborii care au acelasi grad
+        list <Nod*> ::iterator pred, curr, next, del;
 
-        if( tree1 -> key < tree2 -> key )
-            swap ( *tree1, *tree2 );
+        if (heap.size() <= 1)
+            return;
 
-        tree2 -> sibling = tree1 -> child;
-        tree2 -> parent = tree1;
-        tree1 -> child = tree2;
-        tree1 -> degree++;
-
-    }
-
-    void adjust(){
-
-        if( H.size() <= 1 ) return;
-
-        list < node* > :: iterator prev;
-        list < node* > :: iterator curr;
-        list < node* > :: iterator next;
-        list < node* > :: iterator temp;
-
-        prev = curr = H.begin();
+        pred = heap.begin();
+        curr = pred;
         curr++;
         next = curr;
+        
+        if(next!=heap.end())
         next++;
 
-        while( curr != H.end() ){
+        while (curr != heap.end()) {
 
-            while ( ( next == H.end() || (*next) -> degree > (*curr) -> degree ) && curr != H.end() && (*prev) -> degree == (*curr) -> degree ){
+            if ((*pred)->grad < (*curr)->grad) { //daca arborii au grad diferit => nu se pot uni
+                pred++;
+                curr++;
+                if(next!=heap.end())
+                next++;
+            }
+            else if ((*pred)->grad == (*curr)->grad) {     //daca arborii curenti au acelasi grad
 
-                merge_tree( *curr, *prev );
-
-                temp = prev;
-
-                if( prev == H.begin() ){
-                    prev++;
+                if (next != heap.end() && ((*pred)->grad == (*next)->grad)) {   //daca si arborele urmator are acelasi grad vrem sa avansam, pentru a le uni pe ultimele 2 de gradul curent
+                    pred++;
                     curr++;
-                    if( next != H.end() )
+                    next++;
+                }
+
+                else {                                                          //altfel, se unesc arborii curenti
+                    *pred = mergeTrees(*pred, *curr);
+                    del = curr;
+                    curr++;
+                    heap.erase(del);                                            //se sterge arborele 2 dupa ce se avanseaza pozitia
+                    if (next != heap.end())
                         next++;
                 }
-                else prev--;
-
-                H.erase( temp );
-
-            }
-
-            prev++;
-            if( curr != H.end() ) curr++;
-            if( next != H.end() ) next++;
-        }
-    }
-public:
-
-    int top(){
-        return (*get_root()) -> key;
-    }
-
-    void push( int val ){
-
-        node *tree = new_node( val );
-        H.push_front( tree );
-        adjust();
-    }
-
-    void heap_union( binomial_heap& heap2){
-
-        list < node* > :: iterator it1 = H.begin();
-        list < node* > :: iterator it2 = heap2.H.begin();
-
-        list < node* > new_heap;
-
-        while( it1 != H.end() && it2 != heap2.H.end() ){
-            if( (*it1) -> degree <= (*it2) -> degree ){
-                new_heap.push_back( *it1 );
-                it1++;
-            }
-            else{
-                new_heap.push_back( *it2 );
-                it2++;
             }
         }
-
-        while( it1 != H.end() ){
-            new_heap.push_back( *it1 );
-            it1++;
-        }
-
-        while( it2 != heap2.H.end() ){
-            new_heap.push_back( *it2 );
-            it2++;
-        }
-
-        heap2.H.clear();
-
-        H = new_heap;
-        adjust();
     }
 
-    void pop(){
+    void reHeapForPush() {     //acelasi algoritm ca mai sus, dar care se opreste dupa ce nu mai poate merge-ui primul heap.
+        list <Nod*> ::iterator pred, curr, next, del;
 
-        list < node* > :: iterator root = get_root();
+        if (heap.size() <= 1)
+            return;
 
-        binomial_heap new_heap;
-        delete_root( (*root), new_heap );
+        pred = heap.begin();
+        curr = pred;
+        curr++;
+        next = curr;
 
-        H.erase( root );
+        if (next != heap.end())
+            next++;
 
-        heap_union( new_heap );
+        while (curr != heap.end()) {
 
-    }
-
-    int find_min() {
-        node* min_node = nullptr;
-        for (node* tree : H) {
-            if (min_node == nullptr || tree->key < min_node->key) {
-                min_node = tree;
-            }
-        }
-        return min_node ? min_node->key : INF;
-    }
-    int extract_min() {
-        int min_val = find_min();
-        if (min_val == INF) return INF;
-
-        node* min_node = nullptr;
-        for (node* tree : H) {
-            if (tree->key == min_val) {
-                min_node = tree;
+            if ((*pred)->grad < (*curr)->grad) {    //la insertie suntem siguri ca elementul inserat va ramane mereu in primul arbore. Daca gradele nu corespund, putem iesi
                 break;
             }
+            else{    
+
+                /* Acest caz nu mai este posibil
+                if (next != heap.end() && ((*pred)->grad == (*next)->grad)) { 
+                    pred++;
+                    curr++;
+                    next++;
+                }
+                */
+
+                *pred = mergeTrees(*pred, *curr);
+                del = curr;
+                curr++;
+                heap.erase(del);
+                if (next != heap.end())
+                   next++;
+            }
         }
-
-        H.remove(min_node);
-
-        binomial_heap children_heap;
-        for (node* child = min_node->child; child != nullptr; child = child->sibling) {
-          children_heap.H.push_front(child);
-        }       
-        heap_union(children_heap);
-
-        delete min_node;
-        return min_val;
     }
 
+    void meld(BinomialHeap& h2) {   //se meld-uieste un binomial heap la binomial heap-ul curent
+
+        list <Nod*> ::iterator heap1 = heap.begin();
+        list <Nod*> ::iterator heap2 = h2.heap.begin();
+        
+        list <Nod*> newHeap;
+
+        //algoritm de interclasare, in functie de gradurile arborilor din fiecare heap
+        while (heap1 != heap.end() && heap2 != h2.heap.end()) {
+            if ( (*heap1)->grad <= (*heap2) -> grad) {
+                newHeap.push_back(*heap1);
+                heap1++;
+            }
+            else {
+                newHeap.push_back(*heap2);
+                heap2++;
+            }
+        }
+
+        while (heap1 != heap.end()) {
+            newHeap.push_back(*heap1);
+            heap1++;
+        }
+
+        while (heap2 != h2.heap.end()) {
+            newHeap.push_back(*heap2);
+            heap2++;
+        }
+
+        heap = newHeap;     //se pune heap-ul rezultat in binomial heap-ul #1
+        reHeap(); // se ruleaza algoritmul care uneste arborii de acelasi grad pe heap-ul rezultat
+
+        h2.heap.clear(); //se sterge binomial heap-ul #2
+    }
+
+
+    Nod* getRadacina() {        //se returneaza nodul care contine minimul
+        Nod* min = newNod(-999999999);
+
+        for (auto it = heap.begin(); it != heap.end(); it++) {
+            if ((*it)->val > min->val) {
+                min = *it;
+            }
+        }
+
+        return min;
+    }
+
+    int top() {
+        return getRadacina()->val;
+    }
+
+    void push(int x) {
+        Nod* newTree = newNod(x);
+        heap.push_front(newTree);
+        reHeapForPush();
+    }
+
+    void pop() {
+        Nod* radacina = getRadacina();
+
+        BinomialHeap newHeap;   //se creeaza un heap nou
+
+        newHeap.deleteRadacina(radacina);  //se pun copii tree-ului care contine minimul in heap-ul nou
+
+        heap.remove(radacina);   //se sterge tree-ul care contine minimul din heap
+
+        meld(newHeap);  //se insereaza copii tree-ului in heap
+    }
 };
 
 int N, M;
-binomial_heap Heap[NMAX];
-
+BinomialHeap Heap[101];
 int main()
 {
-    fin >> N >> M;
+    f >> N >> M;
 
-    int task, h, x, h1, h2;
-    for( int i = 1; i <= M; ++i ){
-        fin >> task;
+    int opt, heap, x, heap1, heap2;
+    for (int i = 1; i <= M; ++i) {
+        f >> opt;
 
-        if( task == 1 ){
+        if (opt == 1) {                        //insert 
 
-            fin >> h >> x;
-            Heap[h].push( x );
+            f >> heap >> x;
+            Heap[heap].push(x);
 
         }
-        if( task == 2 ){
+        if (opt == 2) {                        //delete min + afis
 
-            fin >> h;
-            fout << Heap[h].top() << '\n';
-            Heap[h].pop();
+            f >> heap;
+            g << Heap[heap].top() << '\n'; 
+            Heap[heap].pop();                     
         }
-        if( task == 3 ){
+        if (opt == 3) {                       //merge 
 
-            fin >> h1 >> h2;
-
-            Heap[h1].heap_union( Heap[h2] );
+            f >> heap1 >> heap2;
+            Heap[heap1].meld(Heap[heap2]);
         }
     }
-
     return 0;
 }
