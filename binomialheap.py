@@ -47,7 +47,7 @@ class BinomialHeap:
 
     def decrease_key(self, node, new_value):
         if new_value > node.value:
-            raise ValueError("New value is greater than current value")
+            raise ValueError
         node.value = new_value
         self._bubble_up(node)
 
