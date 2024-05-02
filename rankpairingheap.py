@@ -5,10 +5,10 @@ class Node:
         self.next_sibling = None
         self.rank = 0
 
-
 class PairingHeap:
     def __init__(self):
         self.root = None
+        
     def insert(self, value):
         nod_nou = Node(value)
         self.root = self._merge(self.root, nod_nou)
